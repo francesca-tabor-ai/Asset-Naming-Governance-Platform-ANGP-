@@ -113,6 +113,136 @@ export async function listAudits(filter: ListAuditsFilter, limit = 100): Promise
   return result.rows.map(mapRow);
 }
 
+export type AggregateGroupBy = 'brand' | 'campaign' | 'market' | 'agency' | 'channel';
+
+export interface AggregateRow {
+  dimension_value: string;
+  pass: number;
+  fail: number;
+  total: number;
+}
+
+const AGGREGATE_COLUMNS: Record<AggregateGroupBy, string> = {
+  brand: 'brand',
+  campaign: 'campaign',
+  market: 'market',
+  agency: 'agency',
+  channel: 'channel',
+};
+
+export async function getAggregates(
+  groupBy: AggregateGroupBy,
+  from_date?: Date,
+  to_date?: Date
+): Promise<AggregateRow[]> {
+  const col = AGGREGATE_COLUMNS[groupBy];
+  const conditions: string[] = [`${col} IS NOT NULL`, `${col} != ''`];
+  const values: unknown[] = [];
+  let idx = 1;
+  if (from_date) {
+    conditions.push(`scanned_at >= $${idx++}`);
+    values.push(from_date);
+  }
+  if (to_date) {
+    conditions.push(`scanned_at <= $${idx++}`);
+    values.push(to_date);
+  }
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  const result = await pool.query(
+    `SELECT ${col} AS dimension_value,
+            COUNT(*) FILTER (WHERE compliance_status = 'pass') AS pass,
+            COUNT(*) FILTER (WHERE compliance_status = 'fail') AS fail,
+            COUNT(*) AS total
+     FROM asset_audits ${where}
+     GROUP BY ${col}
+     ORDER BY fail DESC, total DESC`,
+    values
+  );
+  return result.rows.map((r) => ({
+    dimension_value: String(r.dimension_value),
+    pass: parseInt(String(r.pass), 10) || 0,
+    fail: parseInt(String(r.fail), 10) || 0,
+    total: parseInt(String(r.total), 10) || 0,
+  }));
+}
+
+export interface TrendRow {
+  date: string;
+  pass: number;
+  fail: number;
+  total: number;
+}
+
+export interface SummaryRow {
+  total: number;
+  pass: number;
+  fail: number;
+}
+
+export async function getSummary(from_date?: Date, to_date?: Date): Promise<SummaryRow> {
+  const conditions: string[] = [];
+  const values: unknown[] = [];
+  let idx = 1;
+  if (from_date) {
+    conditions.push(`scanned_at >= $${idx++}`);
+    values.push(from_date);
+  }
+  if (to_date) {
+    conditions.push(`scanned_at <= $${idx++}`);
+    values.push(to_date);
+  }
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  const result = await pool.query(
+    `SELECT COUNT(*) AS total,
+            COUNT(*) FILTER (WHERE compliance_status = 'pass') AS pass,
+            COUNT(*) FILTER (WHERE compliance_status = 'fail') AS fail
+     FROM asset_audits ${where}`,
+    values
+  );
+  const r = result.rows[0];
+  return {
+    total: parseInt(String(r?.total), 10) || 0,
+    pass: parseInt(String(r?.pass), 10) || 0,
+    fail: parseInt(String(r?.fail), 10) || 0,
+  };
+}
+
+export async function getComplianceTrend(
+  from_date?: Date,
+  to_date?: Date,
+  bucket: 'day' | 'week' = 'day'
+): Promise<TrendRow[]> {
+  const trunc = bucket === 'week' ? 'week' : 'day';
+  const conditions: string[] = [];
+  const values: unknown[] = [];
+  let idx = 1;
+  if (from_date) {
+    conditions.push(`scanned_at >= $${idx++}`);
+    values.push(from_date);
+  }
+  if (to_date) {
+    conditions.push(`scanned_at <= $${idx++}`);
+    values.push(to_date);
+  }
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  const result = await pool.query(
+    `SELECT date_trunc('${trunc}', scanned_at)::date AS date,
+            COUNT(*) FILTER (WHERE compliance_status = 'pass') AS pass,
+            COUNT(*) FILTER (WHERE compliance_status = 'fail') AS fail,
+            COUNT(*) AS total
+     FROM asset_audits ${where}
+     GROUP BY date_trunc('${trunc}', scanned_at)
+     ORDER BY date ASC`,
+    values
+  );
+  return result.rows.map((r) => ({
+    date: (r.date as Date).toISOString().slice(0, 10),
+    pass: parseInt(String(r.pass), 10) || 0,
+    fail: parseInt(String(r.fail), 10) || 0,
+    total: parseInt(String(r.total), 10) || 0,
+  }));
+}
+
 function mapRow(row: Record<string, unknown>): AssetAuditRecord {
   return {
     asset_id: row.asset_id as string,

@@ -1,0 +1,8 @@
+{
+  "segmentOrder": ["brand", "product", "campaign", "channel", "format", "language", "market"],
+  "separator": "-",
+  "channelAllowlist": ["IAB", "Social", "OOH", "Display", "Video", "Print", "DOOH", "Email"],
+  "formatDimensionsRegex": "^\\d+x\\d+$",
+  "languageAllowlist": [],
+  "marketAllowlist": []
+}

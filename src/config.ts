@@ -17,4 +17,6 @@ export const config = {
     slackWebhookUrl: process.env.SLACK_WEBHOOK_URL,
     teamsWebhookUrl: process.env.TEAMS_WEBHOOK_URL,
   },
+  /** Optional path to naming schema JSON config; env vars override file values */
+  schemaConfigPath: process.env.SCHEMA_CONFIG_PATH,
 } as const;

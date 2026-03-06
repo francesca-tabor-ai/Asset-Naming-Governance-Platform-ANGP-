@@ -45,7 +45,60 @@
         <p class="caption">Data loads from <code>/internal/audit</code>. Run a scan to populate.</p>
       </div>
 
-      <h3 class="headline-3">Recent audits</h3>
+      <h3 class="headline-3">Compliance over time</h3>
+      <div class="card" style="margin-bottom: var(--space-lg);">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Pass</th>
+                <th>Fail</th>
+                <th>Total</th>
+                <th>Rate</th>
+              </tr>
+            </thead>
+            <tbody id="trend-list">
+              <tr><td colspan="5" class="caption" style="padding: var(--space-md); text-align: center;">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="caption mt-0">Last 14 days. <code>GET /internal/audit/trend</code></p>
+      </div>
+
+      <h3 class="headline-3">Breakdown by dimension</h3>
+      <div class="card" style="margin-bottom: var(--space-lg);">
+        <p class="caption mt-0" style="margin-bottom: var(--space-sm);">
+          <label for="aggregate-group">Group by:</label>
+          <select id="aggregate-group" class="btn btn-ghost" style="margin-left: var(--space-sm);">
+            <option value="brand">Brand</option>
+            <option value="campaign">Campaign</option>
+            <option value="market">Market</option>
+            <option value="agency">Agency</option>
+            <option value="channel">Channel</option>
+          </select>
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th id="aggregate-dim-label">Brand</th>
+                <th>Pass</th>
+                <th>Fail</th>
+                <th>Total</th>
+                <th>Compliance</th>
+              </tr>
+            </thead>
+            <tbody id="aggregate-list">
+              <tr><td colspan="5" class="caption" style="padding: var(--space-md); text-align: center;">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="caption mt-0">Worst offenders by violation count. <code>GET /internal/audit/aggregates</code></p>
+      </div>
+
+      <h3 class="headline-3" id="audit-section-title">Recent audits</h3>
+      <p class="caption mt-0" id="audit-links" style="margin-bottom: var(--space-sm);"></p>
       <div class="table-wrap">
         <table>
           <thead>
@@ -72,6 +125,7 @@
       <div class="flex flex-wrap gap-lg items-center">
         <button type="button" class="btn btn-primary" id="btn-batch">Run batch scan</button>
         <button type="button" class="btn btn-secondary" id="btn-full">Run full audit</button>
+        <a href="/internal/audit/report?format=csv" class="btn btn-ghost" download="angp-governance-report.csv">Download report (CSV)</a>
         <span class="caption" id="scan-result"></span>
       </div>
     </section>
@@ -85,16 +139,57 @@
     const scanResult = document.getElementById("scan-result");
     const btnBatch = document.getElementById("btn-batch");
     const btnFull = document.getElementById("btn-full");
+    const auditSectionTitle = document.getElementById("audit-section-title");
+    const auditLinks = document.getElementById("audit-links");
+    const trendList = document.getElementById("trend-list");
+    const aggregateList = document.getElementById("aggregate-list");
+    const aggregateGroup = document.getElementById("aggregate-group");
+    const aggregateDimLabel = document.getElementById("aggregate-dim-label");
+
+    function getAuditQuery() {
+      const params = new URLSearchParams(window.location.search);
+      const complianceStatus = params.get("compliance_status") || "";
+      const limit = Math.min(parseInt(params.get("limit") || "10", 10) || 10, 500);
+      return { compliance_status: complianceStatus || undefined, limit };
+    }
+
+    function buildAuditUrl(opts) {
+      const p = new URLSearchParams();
+      if (opts.compliance_status) p.set("compliance_status", opts.compliance_status);
+      if (opts.limit != null) p.set("limit", String(opts.limit));
+      const q = p.toString();
+      return q ? "?" + q : "/";
+    }
 
     async function loadAudits() {
+      const query = getAuditQuery();
+      const isFiltered = !!query.compliance_status;
+      const limit = query.limit;
+      const title = isFiltered ? (query.compliance_status === "fail" ? "Violations" : "Compliant audits") : "Recent audits";
+      auditSectionTitle.textContent = title;
+      const links = [];
+      if (query.compliance_status === "fail") {
+        links.push('<a href="/" class="btn btn-ghost" style="font-size: inherit;">View all</a>');
+      } else {
+        links.push('<a href="' + buildAuditUrl({ compliance_status: "fail", limit: 50 }) + '" class="btn btn-ghost" style="font-size: inherit;">View violations</a>');
+      }
+      auditLinks.innerHTML = links.join(" · ");
+      auditLinks.style.display = "block";
+
+      const qs = new URLSearchParams({ limit: String(limit) });
+      if (query.compliance_status) qs.set("compliance_status", query.compliance_status);
       try {
-        const res = await fetch("/internal/audit?limit=10");
+        const res = await fetch("/internal/audit?" + qs.toString());
+        if (!res.ok) throw new Error(res.statusText);
         const data = await res.json();
         const audits = data.audits || [];
-        statAudited.textContent = audits.length >= 10 ? "10+" : String(audits.length);
-        const failed = audits.filter((a) => a.compliance_status === "fail").length;
-        statViolations.textContent = String(failed);
-        statRate.textContent = audits.length ? Math.round(((audits.length - failed) / audits.length) * 100) + "%" : "—";
+
+        if (!isFiltered) {
+          statAudited.textContent = audits.length >= limit ? limit + "+" : String(audits.length);
+          const failed = audits.filter((a) => a.compliance_status === "fail").length;
+          statViolations.textContent = String(failed);
+          statRate.textContent = audits.length ? Math.round(((audits.length - failed) / audits.length) * 100) + "%" : "—";
+        }
 
         if (audits.length === 0) {
           auditList.innerHTML = '<tr><td colspan="5" class="caption" style="padding: var(--space-xl); text-align: center;">No audits yet. Trigger a scan to see results.</td></tr>';
@@ -110,7 +205,10 @@
           `).join("");
         }
       } catch (e) {
-        auditList.innerHTML = '<tr><td colspan="5" class="caption" style="padding: var(--space-xl); color: var(--status-fail);">Could not load audits. Is the API running?</td></tr>';
+        statAudited.textContent = "—";
+        statRate.textContent = "—";
+        statViolations.textContent = "—";
+        auditList.innerHTML = '<tr><td colspan="5" class="caption" style="padding: var(--space-xl); color: var(--status-fail);">Could not load audits. Check the API is running and try again.</td></tr>';
       }
     }
 
@@ -132,16 +230,65 @@
         const data = await res.json();
         scanResult.textContent = res.ok ? `Enqueued: ${data.enqueued ?? data.jobId ?? "ok"}` : (data.error || res.statusText);
         scanResult.style.color = res.ok ? "var(--status-pass)" : "var(--status-fail)";
-        if (res.ok) setTimeout(loadAudits, 1500);
+        if (res.ok) {
+          setTimeout(() => { loadAudits(); loadTrend(); loadAggregates(); }, 1500);
+        }
       } catch (e) {
         scanResult.textContent = "Request failed";
         scanResult.style.color = "var(--status-fail)";
       }
     }
 
+    async function loadTrend() {
+      const to = new Date();
+      const from = new Date(to);
+      from.setDate(from.getDate() - 14);
+      const fromStr = from.toISOString().slice(0, 10);
+      const toStr = to.toISOString().slice(0, 10);
+      try {
+        const res = await fetch("/internal/audit/trend?from_date=" + fromStr + "&to_date=" + toStr + "&bucket=day");
+        const data = await res.json();
+        const trend = data.trend || [];
+        if (trend.length === 0) {
+          trendList.innerHTML = '<tr><td colspan="5" class="caption" style="padding: var(--space-md); text-align: center;">No data for this period.</td></tr>';
+        } else {
+          trendList.innerHTML = trend.map((r) => {
+            const rate = r.total ? Math.round((r.pass / r.total) * 100) : 0;
+            return "<tr><td>" + escapeHtml(r.date) + "</td><td>" + r.pass + "</td><td>" + r.fail + "</td><td>" + r.total + "</td><td>" + rate + "%</td></tr>";
+          }).join("");
+        }
+      } catch (e) {
+        trendList.innerHTML = '<tr><td colspan="5" class="caption" style="padding: var(--space-md); color: var(--status-fail);">Could not load trend.</td></tr>';
+      }
+    }
+
+    async function loadAggregates() {
+      const groupBy = aggregateGroup.value;
+      const labels = { brand: "Brand", campaign: "Campaign", market: "Market", agency: "Agency", channel: "Channel" };
+      aggregateDimLabel.textContent = labels[groupBy] || groupBy;
+      try {
+        const res = await fetch("/internal/audit/aggregates?group_by=" + encodeURIComponent(groupBy));
+        const data = await res.json();
+        const aggregates = data.aggregates || [];
+        if (aggregates.length === 0) {
+          aggregateList.innerHTML = '<tr><td colspan="5" class="caption" style="padding: var(--space-md); text-align: center;">No data.</td></tr>';
+        } else {
+          aggregateList.innerHTML = aggregates.map((r) => {
+            const rate = r.total ? Math.round((r.pass / r.total) * 100) : 0;
+            return "<tr><td>" + escapeHtml(r.dimension_value) + "</td><td>" + r.pass + "</td><td>" + r.fail + "</td><td>" + r.total + "</td><td>" + rate + "%</td></tr>";
+          }).join("");
+        }
+      } catch (e) {
+        aggregateList.innerHTML = '<tr><td colspan="5" class="caption" style="padding: var(--space-md); color: var(--status-fail);">Could not load breakdown.</td></tr>';
+      }
+    }
+
     btnBatch.addEventListener("click", () => runScan("batch"));
     btnFull.addEventListener("click", () => runScan("full_audit"));
+    aggregateGroup.addEventListener("change", loadAggregates);
     loadAudits();
+    loadTrend();
+    loadAggregates();
   </script>
 </body>
 </html>

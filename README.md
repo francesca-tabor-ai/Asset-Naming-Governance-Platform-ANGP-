@@ -90,11 +90,16 @@ The app uses a consistent design language: **humanist sans-serif** typography (h
 
 The API and BullMQ worker run in the same process. The API listens on `PORT` (default 3000).
 
+**Phase 1 scope:** Validation, audit API, Bynder + stub DAM, Slack/Teams alerts, dashboard, scan modes. **Coming next:** Compliance dashboards (trends, breakdowns), governance reports. See [ROADMAP.md](ROADMAP.md) and [Runbook](docs/RUNBOOK.md) for operations (cron, env checklist, scaling).
+
 ### API (Phase 1)
 
 - **GET /health** – Health check.
 - **GET /internal/audit?assetId=...** – Get compliance result for one asset.
 - **GET /internal/audit** – List audits with optional filters: `brand`, `campaign`, `market`, `agency`, `channel`, `compliance_status`, `from_date`, `to_date`, `limit`.
+- **GET /internal/audit/aggregates** – Compliance breakdown: `group_by=brand|campaign|market|agency|channel`, optional `from_date`, `to_date`.
+- **GET /internal/audit/trend** – Compliance over time: optional `from_date`, `to_date`, `bucket=day|week`.
+- **GET /internal/audit/report** – Governance report: JSON (default) or CSV (`format=csv` or `Accept: text/csv`). Optional `from_date`, `to_date`. Includes summary, breakdown by brand/market/agency, and top violations.
 - **POST /internal/scan** – Trigger a scan:
   - `{ "mode": "realtime", "assetId": "<uuid>" }` – validate one asset (DAM must support `getAssetById`).
   - `{ "mode": "batch" }` or `{ "mode": "batch", "modifiedAfter": "<ISO date>" }` – hourly batch (assets modified since given time, default last hour).
@@ -128,6 +133,8 @@ When a filename fails validation, the worker sends an alert to configured channe
 ### Naming convention
 
 Default pattern: `BRAND-PRODUCT-CAMPAIGN-CHANNEL-FORMAT-LANGUAGE-MARKET` (e.g. `BRAND-PRODUCT-CAMPAIGN-IAB-300x250-EN-UK.psd`). Channel and format are validated against an allowlist and dimensions regex; language and market must be two-letter codes.
+
+**Configurable schema:** Set `SCHEMA_CONFIG_PATH` to a JSON file (see `schema-config.example.json`), or override via env: `SCHEMA_SEPARATOR`, `SCHEMA_CHANNEL_ALLOWLIST`, `SCHEMA_FORMAT_DIMENSIONS_REGEX`, `SCHEMA_LANGUAGE_ALLOWLIST`, `SCHEMA_MARKET_ALLOWLIST`, `SCHEMA_SEGMENT_ORDER`. Env overrides file; both override defaults.
 
 ### Tests
 

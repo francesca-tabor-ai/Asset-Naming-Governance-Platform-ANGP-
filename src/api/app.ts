@@ -1,7 +1,14 @@
 import express, { Request, Response } from 'express';
 import path from 'path';
 import { config } from '../config';
-import { getAuditByAssetId, listAudits } from '../audit/repository';
+import {
+  getAuditByAssetId,
+  listAudits,
+  getAggregates,
+  getComplianceTrend,
+  getSummary,
+  type AggregateGroupBy,
+} from '../audit/repository';
 import { triggerBatchScan, triggerFullAudit, triggerRealtimeScan, getDAMClient } from '../ingestion';
 
 const app = express();
@@ -47,6 +54,126 @@ app.get('/internal/audit', async (req: Request, res: Response) => {
     limit
   );
   res.json({ audits: records });
+});
+
+app.get('/internal/audit/aggregates', async (req: Request, res: Response) => {
+  const groupBy = (req.query.group_by as AggregateGroupBy) || 'brand';
+  const allowed: AggregateGroupBy[] = ['brand', 'campaign', 'market', 'agency', 'channel'];
+  if (!allowed.includes(groupBy)) {
+    return res.status(400).json({ error: 'Invalid group_by', allowed });
+  }
+  const from_date = req.query.from_date ? new Date(req.query.from_date as string) : undefined;
+  const to_date = req.query.to_date ? new Date(req.query.to_date as string) : undefined;
+  const rows = await getAggregates(groupBy, from_date, to_date);
+  return res.json({ aggregates: rows });
+});
+
+app.get('/internal/audit/trend', async (req: Request, res: Response) => {
+  const from_date = req.query.from_date ? new Date(req.query.from_date as string) : undefined;
+  const to_date = req.query.to_date ? new Date(req.query.to_date as string) : undefined;
+  const bucket = (req.query.bucket as 'day' | 'week') || 'day';
+  if (bucket !== 'day' && bucket !== 'week') {
+    return res.status(400).json({ error: 'Invalid bucket', expected: 'day | week' });
+  }
+  const rows = await getComplianceTrend(from_date, to_date, bucket);
+  return res.json({ trend: rows });
+});
+
+function escapeCsvCell(s: string): string {
+  const t = String(s ?? '');
+  if (/[",\n\r]/.test(t)) return '"' + t.replace(/"/g, '""') + '"';
+  return t;
+}
+
+app.get('/internal/audit/report', async (req: Request, res: Response) => {
+  const from_date = req.query.from_date ? new Date(req.query.from_date as string) : undefined;
+  const to_date = req.query.to_date ? new Date(req.query.to_date as string) : undefined;
+  const format = (req.query.format as string) || (req.get('accept')?.includes('text/csv') ? 'csv' : 'json');
+  if (format !== 'csv') {
+    const summary = await getSummary(from_date, to_date);
+    const [byBrand, byMarket, byAgency] = await Promise.all([
+      getAggregates('brand', from_date, to_date),
+      getAggregates('market', from_date, to_date),
+      getAggregates('agency', from_date, to_date),
+    ]);
+    const violations = await listAudits(
+      { compliance_status: 'fail', from_date, to_date },
+      500
+    );
+    return res.json({
+      from_date: from_date?.toISOString(),
+      to_date: to_date?.toISOString(),
+      summary: {
+        total: summary.total,
+        pass: summary.pass,
+        fail: summary.fail,
+        compliance_pct: summary.total ? Math.round((summary.pass / summary.total) * 100) : 0,
+      },
+      breakdown: { brand: byBrand, market: byMarket, agency: byAgency },
+      violations: violations.map((v) => ({
+        filename: v.filename,
+        brand: v.brand,
+        campaign: v.campaign,
+        market: v.market,
+        agency: v.agency,
+        channel: v.channel,
+        scanned_at: v.scanned_at?.toISOString(),
+        violation_type: v.violation_type,
+      })),
+    });
+  }
+  const summary = await getSummary(from_date, to_date);
+  const compliancePct = summary.total ? Math.round((summary.pass / summary.total) * 100) : 0;
+  const fromStr = from_date?.toISOString().slice(0, 10) ?? '';
+  const toStr = to_date?.toISOString().slice(0, 10) ?? '';
+  const [byBrand, byMarket, byAgency] = await Promise.all([
+    getAggregates('brand', from_date, to_date),
+    getAggregates('market', from_date, to_date),
+    getAggregates('agency', from_date, to_date),
+  ]);
+  const violations = await listAudits(
+    { compliance_status: 'fail', from_date, to_date },
+    500
+  );
+  const rows: string[] = [];
+  rows.push('Report Type,Metric,Value');
+  rows.push('Summary,from_date,' + escapeCsvCell(fromStr));
+  rows.push('Summary,to_date,' + escapeCsvCell(toStr));
+  rows.push('Summary,total_audited,' + summary.total);
+  rows.push('Summary,pass,' + summary.pass);
+  rows.push('Summary,fail,' + summary.fail);
+  rows.push('Summary,compliance_pct,' + compliancePct);
+  rows.push('');
+  rows.push('Dimension,Value,Pass,Fail,Total,Compliance %');
+  for (const r of byBrand) {
+    const pct = r.total ? Math.round((r.pass / r.total) * 100) : 0;
+    rows.push('brand,' + escapeCsvCell(r.dimension_value) + ',' + r.pass + ',' + r.fail + ',' + r.total + ',' + pct);
+  }
+  for (const r of byMarket) {
+    const pct = r.total ? Math.round((r.pass / r.total) * 100) : 0;
+    rows.push('market,' + escapeCsvCell(r.dimension_value) + ',' + r.pass + ',' + r.fail + ',' + r.total + ',' + pct);
+  }
+  for (const r of byAgency) {
+    const pct = r.total ? Math.round((r.pass / r.total) * 100) : 0;
+    rows.push('agency,' + escapeCsvCell(r.dimension_value) + ',' + r.pass + ',' + r.fail + ',' + r.total + ',' + pct);
+  }
+  rows.push('');
+  rows.push('Filename,Brand,Campaign,Market,Agency,Channel,Scanned At,Violation Types');
+  for (const v of violations) {
+    rows.push(
+      escapeCsvCell(v.filename) + ',' +
+      escapeCsvCell(v.brand ?? '') + ',' +
+      escapeCsvCell(v.campaign ?? '') + ',' +
+      escapeCsvCell(v.market ?? '') + ',' +
+      escapeCsvCell(v.agency ?? '') + ',' +
+      escapeCsvCell(v.channel ?? '') + ',' +
+      escapeCsvCell(v.scanned_at?.toISOString() ?? '') + ',' +
+      escapeCsvCell((v.violation_type || []).join('; '))
+    );
+  }
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="angp-governance-report.csv"');
+  res.send(rows.join('\n'));
 });
 
 app.post('/internal/scan', async (req: Request, res: Response) => {
