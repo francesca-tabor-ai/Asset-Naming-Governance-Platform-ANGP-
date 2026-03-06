@@ -47,6 +47,11 @@ ANGP is built for **global marketing and creative operations teams** who manage 
 
 - **Stack:** Node.js, TypeScript, PostgreSQL (audit store), Redis + BullMQ (job queue).
 - **Integrations:** DAM adapters (stub + Bynder in Phase 1); Slack and Teams webhooks for alerts.
+- **UI & design:** Dashboard at `/` (see [Design system](#design-system)). Humanist sans-serif (Source Sans 3), minimal palette with cool greys and a signature gradient accent, rounded components, strong typographic hierarchy.
+
+### Design system
+
+The app uses a consistent design language: **humanist sans-serif** typography (high legibility, technical but friendly), **minimal + expressive** colour (black/white, cool greys, signature purple–blue–pink–orange gradient used sparingly), **rounded UI** and generous white space. Tokens live in `public/css/design-tokens.css`; override or extend for branding.
 
 ### Requirements
 

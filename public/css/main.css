@@ -1,0 +1,273 @@
+/**
+ * ANGP — Main styles
+ * Humanist sans-serif, minimal + expressive, developer-first
+ */
+
+@import "design-tokens.css";
+
+@import url("https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,300;0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap");
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--body-size);
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-body);
+  color: var(--text-primary);
+  background: var(--bg-primary);
+}
+
+/* ——— Typography hierarchy ——— */
+h1, .headline-1 {
+  font-size: var(--headline-size-1);
+  font-weight: var(--weight-bold);
+  line-height: var(--line-height-tight);
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-lg);
+}
+
+h2, .headline-2 {
+  font-size: var(--headline-size-2);
+  font-weight: var(--weight-bold);
+  line-height: var(--line-height-tight);
+  color: var(--text-primary);
+  margin: 0 0 var(--space-md);
+}
+
+h3, .headline-3 {
+  font-size: var(--headline-size-3);
+  font-weight: var(--weight-semibold);
+  line-height: var(--line-height-tight);
+  color: var(--text-primary);
+  margin: 0 0 var(--space-sm);
+}
+
+p, .body {
+  font-size: var(--body-size);
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-relaxed);
+  color: var(--text-primary);
+  margin: 0 0 var(--space-md);
+}
+
+.body-secondary {
+  color: var(--text-secondary);
+  font-size: var(--body-size-sm);
+}
+
+.caption {
+  font-size: var(--caption-size);
+  color: var(--text-tertiary);
+  line-height: var(--line-height-body);
+}
+
+/* Data / UI numbers */
+.data, .num {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+  font-size: var(--data-size);
+  font-weight: var(--weight-regular);
+  color: var(--text-primary);
+}
+
+/* ——— Layout ——— */
+.layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.main {
+  flex: 1;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--space-2xl) var(--space-lg);
+}
+
+/* ——— Hero (gradient used sparingly) ——— */
+.hero {
+  padding: var(--space-3xl) 0;
+  background: var(--gradient-accent-soft);
+  border-radius: var(--radius-xl);
+  margin-bottom: var(--space-2xl);
+}
+
+.hero-badge {
+  display: inline-block;
+  font-size: var(--caption-size);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent-purple);
+  margin-bottom: var(--space-md);
+}
+
+.hero h1 {
+  margin-bottom: var(--space-md);
+}
+
+.hero .body {
+  max-width: 42ch;
+  color: var(--text-secondary);
+}
+
+/* ——— Cards & panels ——— */
+.card {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--transition-base), border-color var(--transition-base);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-default);
+}
+
+.panel {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+  border: 1px solid var(--border-subtle);
+}
+
+/* ——— UI components (rounded, clear) ——— */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  font-family: var(--font-sans);
+  font-size: var(--body-size-sm);
+  font-weight: var(--weight-semibold);
+  line-height: 1.2;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  border: none;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
+}
+
+.btn-primary {
+  background: var(--grey-900);
+  color: var(--text-inverse);
+}
+
+.btn-primary:hover {
+  background: var(--grey-800);
+}
+
+.btn-secondary {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+}
+
+.btn-secondary:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--grey-400);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.btn-ghost:hover {
+  background: var(--grey-100);
+  color: var(--text-primary);
+}
+
+/* ——— Data table / list ——— */
+.table-wrap {
+  overflow-x: auto;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--body-size-sm);
+}
+
+th {
+  text-align: left;
+  font-weight: var(--weight-semibold);
+  color: var(--text-secondary);
+  padding: var(--space-md) var(--space-lg);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+td {
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+tr:hover td {
+  background: var(--grey-50);
+}
+
+.status-dot {
+  display: inline-flex;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  margin-right: var(--space-sm);
+}
+
+.status-dot.pass { background: var(--status-pass); }
+.status-dot.fail { background: var(--status-fail); }
+
+/* ——— Nav / header ——— */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-primary);
+}
+
+.logo {
+  font-size: var(--headline-size-3);
+  font-weight: var(--weight-bold);
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+/* ——— Utility ——— */
+.mt-0 { margin-top: 0; }
+.mb-xl { margin-bottom: var(--space-xl); }
+.gap-lg { gap: var(--space-lg); }
+.flex { display: flex; }
+.flex-wrap { flex-wrap: wrap; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }

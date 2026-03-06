@@ -1,10 +1,17 @@
 import express, { Request, Response } from 'express';
+import path from 'path';
 import { config } from '../config';
 import { getAuditByAssetId, listAudits } from '../audit/repository';
 import { triggerBatchScan, triggerFullAudit, triggerRealtimeScan, getDAMClient } from '../ingestion';
 
 const app = express();
 app.use(express.json());
+
+const publicDir = path.join(process.cwd(), 'public');
+app.use('/css', express.static(path.join(publicDir, 'css')));
+app.get('/', (_req: Request, res: Response) => {
+  res.sendFile(path.join(publicDir, 'index.html'));
+});
 
 app.get('/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

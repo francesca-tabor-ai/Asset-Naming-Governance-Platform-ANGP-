@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ANGP — Asset Naming Governance Platform</title>
+  <link rel="stylesheet" href="/css/main.css" />
+</head>
+<body class="layout">
+  <header class="header">
+    <span class="logo">ANGP</span>
+    <nav class="nav">
+      <a href="/" class="btn btn-ghost">Dashboard</a>
+      <a href="/internal/audit" class="btn btn-ghost">Audit API</a>
+      <a href="/health" class="btn btn-ghost">Health</a>
+    </nav>
+  </header>
+
+  <main class="main">
+    <section class="hero">
+      <p class="hero-badge">Governance · Phase 1</p>
+      <h1>Asset naming governance platform</h1>
+      <p class="body body-secondary">
+        The quality control layer for your creative asset ecosystem. Ensure every asset follows naming and templating standards—so automation scales, search works, and governance is visible.
+      </p>
+    </section>
+
+    <section class="mb-xl">
+      <h2 class="headline-2">Compliance at a glance</h2>
+      <div class="card" style="margin-bottom: var(--space-lg);">
+        <div class="flex flex-wrap gap-lg" style="margin-bottom: var(--space-md);">
+          <div>
+            <p class="caption">Assets audited</p>
+            <p class="data headline-3 mt-0" id="stat-audited">—</p>
+          </div>
+          <div>
+            <p class="caption">Compliance rate</p>
+            <p class="data headline-3 mt-0" id="stat-rate">—</p>
+          </div>
+          <div>
+            <p class="caption">Violations (open)</p>
+            <p class="data headline-3 mt-0" id="stat-violations">—</p>
+          </div>
+        </div>
+        <p class="caption">Data loads from <code>/internal/audit</code>. Run a scan to populate.</p>
+      </div>
+
+      <h3 class="headline-3">Recent audits</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Filename</th>
+              <th>Status</th>
+              <th>Brand</th>
+              <th>Market</th>
+              <th>Scanned</th>
+            </tr>
+          </thead>
+          <tbody id="audit-list">
+            <tr><td colspan="5" class="caption" style="padding: var(--space-xl); text-align: center;">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel mb-xl">
+      <h3 class="headline-3">Trigger scan</h3>
+      <p class="body body-secondary mt-0" style="margin-bottom: var(--space-md);">
+        Run a batch or full audit via the API. Use cron for hourly batch or daily full audit.
+      </p>
+      <div class="flex flex-wrap gap-lg items-center">
+        <button type="button" class="btn btn-primary" id="btn-batch">Run batch scan</button>
+        <button type="button" class="btn btn-secondary" id="btn-full">Run full audit</button>
+        <span class="caption" id="scan-result"></span>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const auditList = document.getElementById("audit-list");
+    const statAudited = document.getElementById("stat-audited");
+    const statRate = document.getElementById("stat-rate");
+    const statViolations = document.getElementById("stat-violations");
+    const scanResult = document.getElementById("scan-result");
+    const btnBatch = document.getElementById("btn-batch");
+    const btnFull = document.getElementById("btn-full");
+
+    async function loadAudits() {
+      try {
+        const res = await fetch("/internal/audit?limit=10");
+        const data = await res.json();
+        const audits = data.audits || [];
+        statAudited.textContent = audits.length >= 10 ? "10+" : String(audits.length);
+        const failed = audits.filter((a) => a.compliance_status === "fail").length;
+        statViolations.textContent = String(failed);
+        statRate.textContent = audits.length ? Math.round(((audits.length - failed) / audits.length) * 100) + "%" : "—";
+
+        if (audits.length === 0) {
+          auditList.innerHTML = '<tr><td colspan="5" class="caption" style="padding: var(--space-xl); text-align: center;">No audits yet. Trigger a scan to see results.</td></tr>';
+        } else {
+          auditList.innerHTML = audits.map((a) => `
+            <tr>
+              <td><span class="data">${escapeHtml(a.filename)}</span></td>
+              <td><span class="status-dot ${a.compliance_status}"></span>${a.compliance_status}</td>
+              <td>${escapeHtml(a.brand || "—")}</td>
+              <td>${escapeHtml(a.market || "—")}</td>
+              <td class="caption">${a.scanned_at ? new Date(a.scanned_at).toLocaleString() : "—"}</td>
+            </tr>
+          `).join("");
+        }
+      } catch (e) {
+        auditList.innerHTML = '<tr><td colspan="5" class="caption" style="padding: var(--space-xl); color: var(--status-fail);">Could not load audits. Is the API running?</td></tr>';
+      }
+    }
+
+    function escapeHtml(s) {
+      const div = document.createElement("div");
+      div.textContent = s;
+      return div.innerHTML;
+    }
+
+    async function runScan(mode) {
+      scanResult.textContent = "Running…";
+      scanResult.style.color = "var(--text-secondary)";
+      try {
+        const res = await fetch("/internal/scan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode }),
+        });
+        const data = await res.json();
+        scanResult.textContent = res.ok ? `Enqueued: ${data.enqueued ?? data.jobId ?? "ok"}` : (data.error || res.statusText);
+        scanResult.style.color = res.ok ? "var(--status-pass)" : "var(--status-fail)";
+        if (res.ok) setTimeout(loadAudits, 1500);
+      } catch (e) {
+        scanResult.textContent = "Request failed";
+        scanResult.style.color = "var(--status-fail)";
+      }
+    }
+
+    btnBatch.addEventListener("click", () => runScan("batch"));
+    btnFull.addEventListener("click", () => runScan("full_audit"));
+    loadAudits();
+  </script>
+</body>
+</html>
