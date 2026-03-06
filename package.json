@@ -1,0 +1,39 @@
+{
+  "name": "asset-naming-governance-platform",
+  "version": "0.1.0",
+  "description": "ANGP - Automated DAM scanning, naming validation, and compliance alerting",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node-dev --respawn src/index.ts",
+    "migrate": "node-pg-migrate",
+    "migrate:up": "node-pg-migrate up --migrations-dir db/migrations",
+    "migrate:down": "node-pg-migrate down --migrations-dir db/migrations",
+    "test": "node -r ./jest.localStorage.shim.js node_modules/.bin/jest --passWithNoTests",
+    "test:watch": "jest --watch --passWithNoTests",
+    "lint": "eslint src --ext .ts"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "bullmq": "^5.34.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "ioredis": "^5.4.1",
+    "node-pg-migrate": "^6.2.2",
+    "pg": "^8.13.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.9.0",
+    "@types/pg": "^8.11.6",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.6.3"
+  }
+}
