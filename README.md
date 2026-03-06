@@ -1,14 +1,60 @@
 # Asset Naming Governance Platform (ANGP)
 
-Automated DAM scanning, naming convention validation, and compliance alerting for creative asset ecosystems.
+**The quality control layer for your creative asset ecosystem.**  
+ANGP ensures every asset in the DAM follows your naming and templating standards—so automation scales, search works, and governance is visible.
 
-## Requirements
+---
+
+## Who this is for (Ideal Customer Profile)
+
+ANGP is built for **global marketing and creative operations teams** who manage large volumes of digital assets across many markets, agencies, and channels.
+
+| Role | How they use ANGP |
+|------|-------------------|
+| **Creative Operations** | Own template governance and asset quality; use dashboards and reports to drive compliance and reduce rework. |
+| **DAM Administrators** | Control asset ingestion and metadata; use ANGP to validate before or after upload and keep the DAM searchable. |
+| **Creative Agencies** | See their own violations and fix naming before delivery; avoid rejections and round-trips. |
+| **Marketing Operations** | Track campaign asset performance and localisation; rely on compliant naming for automation and reporting. |
+
+**Typical environment:** Tens of thousands of assets per year, multiple DAMs (e.g. AEM Assets, Bynder, Aprimo, Brandfolder), 100+ markets, 50+ agencies, and a need for templatisation and automation.
+
+---
+
+## Pain points we solve
+
+| Pain point | Impact | How ANGP helps |
+|------------|--------|-----------------|
+| **Poor asset discoverability** | Wrong or inconsistent file names break DAM search; teams can’t find the right asset. | Naming convention validation and enforcement so every asset is consistently, machine-readable named. |
+| **Automation failures** | Templating and localisation pipelines depend on predictable naming; bad names break workflows. | Validation at ingest (real-time or batch) so only compliant assets enter automation. |
+| **No governance visibility** | Creative Ops can’t see compliance rates, violation trends, or which agencies or markets underperform. | Audit database, compliance dashboards (Phase 2), and monthly governance reports. |
+| **Manual QC bottlenecks** | People manually check filenames and templates; it doesn’t scale with global production. | Automated scanning, validation, and alerts so QC is continuous and violations are flagged immediately. |
+
+---
+
+## What ANGP delivers
+
+- **Automated DAM scanning** — Connect to your DAM (Bynder, AEM, Aprimo, Brandfolder); scan in real time on upload, hourly batch, or daily full audit.
+- **Naming convention validation** — Rules engine checks filenames against your schema (e.g. `BRAND-PRODUCT-CAMPAIGN-CHANNEL-FORMAT-LANGUAGE-MARKET`), with configurable channel allowlists, format dimensions, and ISO language/market codes.
+- **Real-time alerting** — Invalid filenames trigger notifications to Slack or Microsoft Teams (and optionally Jira) so uploaders and governance owners can act fast.
+- **Audit trail and drill-down** — Every scan is stored; filter by brand, campaign, market, agency, channel, and date for remediation and reporting.
+- **Scalable by design** — Built for 100,000+ assets, &lt;5 min latency on upload, and horizontal scaling of workers.
+
+**Success outcomes:** Higher naming compliance (&gt;97% target), better DAM discoverability, fewer automation failures, and significant reduction in manual QC.
+
+---
+
+## Technical overview
+
+- **Stack:** Node.js, TypeScript, PostgreSQL (audit store), Redis + BullMQ (job queue).
+- **Integrations:** DAM adapters (stub + Bynder in Phase 1); Slack and Teams webhooks for alerts.
+
+### Requirements
 
 - Node.js 18+
 - PostgreSQL
 - Redis (for BullMQ)
 
-## Setup
+### Setup
 
 1. **Install dependencies**
 
@@ -39,7 +85,7 @@ Automated DAM scanning, naming convention validation, and compliance alerting fo
 
 The API and BullMQ worker run in the same process. The API listens on `PORT` (default 3000).
 
-## API (Phase 1)
+### API (Phase 1)
 
 - **GET /health** – Health check.
 - **GET /internal/audit?assetId=...** – Get compliance result for one asset.
@@ -49,17 +95,17 @@ The API and BullMQ worker run in the same process. The API listens on `PORT` (de
   - `{ "mode": "batch" }` or `{ "mode": "batch", "modifiedAfter": "<ISO date>" }` – hourly batch (assets modified since given time, default last hour).
   - `{ "mode": "full_audit" }` – daily full audit (all assets in chunks).
 
-## Scan modes
+### Scan modes
 
 | Mode        | Use case              | Frequency (configure externally) |
 | ----------- | --------------------- | --------------------------------- |
 | Real-time   | On asset upload       | Webhook or event from DAM         |
 | Batch       | Recent changes        | e.g. hourly cron                  |
-| Full audit  | Complete compliance   | e.g. daily cron                  |
+| Full audit  | Complete compliance   | e.g. daily cron                   |
 
 Trigger batch or full audit via cron calling `POST /internal/scan` with the desired `mode`.
 
-## DAM adapter
+### DAM adapter
 
 Set `DAM_PROVIDER=stub` (default) for development with fake data. For Bynder set:
 
@@ -67,22 +113,24 @@ Set `DAM_PROVIDER=stub` (default) for development with fake data. For Bynder set
 - `BYNDER_BASE_URL` – Bynder instance URL
 - `BYNDER_TOKEN` – API token
 
-## Alerts
+### Alerts
 
 When a filename fails validation, the worker sends an alert to configured channels:
 
-- **Slack**: set `SLACK_WEBHOOK_URL` (incoming webhook).
-- **Microsoft Teams**: set `TEAMS_WEBHOOK_URL` (incoming webhook).
+- **Slack:** set `SLACK_WEBHOOK_URL` (incoming webhook).
+- **Microsoft Teams:** set `TEAMS_WEBHOOK_URL` (incoming webhook).
 
-## Naming convention
+### Naming convention
 
 Default pattern: `BRAND-PRODUCT-CAMPAIGN-CHANNEL-FORMAT-LANGUAGE-MARKET` (e.g. `BRAND-PRODUCT-CAMPAIGN-IAB-300x250-EN-UK.psd`). Channel and format are validated against an allowlist and dimensions regex; language and market must be two-letter codes.
 
-## Tests
+### Tests
 
 ```bash
 npm test
 ```
+
+---
 
 ## License
 
